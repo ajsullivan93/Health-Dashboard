@@ -4,6 +4,1080 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#111827">
+<title>My Health Dashboard</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+header {
+  background: #111827;
+  color: white;
+  padding: 28px 20px 24px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+header p {
+  margin: 6px 0 0;
+  color: #9ca3af;
+}
+
+.container {
+  max-width: 700px;
+  margin: auto;
+  padding: 18px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+
+.tabs button {
+  flex: 1;
+  min-width: 90px;
+  background: white;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+
+.tabs button.active {
+  background: #111827;
+  color: white;
+}
+
+button {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.score-card {
+  background: white;
+  border-radius: 22px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,.06);
+  margin-bottom: 18px;
+}
+
+.score {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.score-label {
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+.recommendation {
+  margin-top: 18px;
+  background: #ecfdf5;
+  border-radius: 14px;
+  padding: 14px;
+  text-align: left;
+}
+
+.section {
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.05);
+}
+
+.section h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.metric {
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.metric-title {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.metric-value {
+  font-size: 21px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress {
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #111827;
+  width: 0%;
+  transition: width .3s;
+}
+
+.small {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.food-entry,
+.workout-entry {
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.food-entry:last-child,
+.workout-entry:last-child {
+  border-bottom: none;
+}
+
+.workout-day {
+  font-weight: 700;
+}
+
+.workout-type {
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.primary {
+  width: 100%;
+  background: #111827;
+  color: white;
+  margin-top: 10px;
+}
+
+.hidden {
+  display: none;
+}
+
+.goal-number {
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.status {
+  margin-top: 8px;
+  font-weight: 600;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>My Health Dashboard</h1>
+  <p>Health • Fitness • Nutrition • Recovery</p>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button class="active" onclick="showTab('dashboard', this)">
+      Dashboard
+    </button>
+
+    <button onclick="showTab('food', this)">
+      Food
+    </button>
+
+    <button onclick="showTab('workouts', this)">
+      Workouts
+    </button>
+
+    <button onclick="showTab('profile', this)">
+      Goals
+    </button>
+  </div>
+
+
+  <!-- DASHBOARD -->
+
+  <div id="dashboard">
+
+    <div class="score-card">
+
+      <div class="score" id="healthScore">
+        75
+      </div>
+
+      <div class="score-label">
+        Today's Health Score
+      </div>
+
+      <div class="recommendation">
+
+        <strong>💡 Today's Recommendation</strong>
+
+        <p>
+          Your dashboard is ready. Once Apple Health data is connected,
+          your recommendations will be based on your actual sleep,
+          activity, recovery and fitness data.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <!-- WEIGHT GOAL -->
+
+    <div class="section">
+
+      <div class="goal-header">
+
+        <div>
+          <div class="small">
+            Weight Goal
+          </div>
+
+          <div class="goal-number">
+            <span id="currentWeight">220</span>
+            →
+            <span id="goalWeight">190</span> lb
+          </div>
+        </div>
+
+        <div>
+          <strong id="weightRemaining">
+            30 lb
+          </strong>
+
+          <div class="small">
+            remaining
+          </div>
+        </div>
+
+      </div>
+
+      <div class="progress">
+        <div
+          class="progress-bar"
+          id="weightProgress">
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- HEALTH METRICS -->
+
+    <div class="section">
+
+      <h2>Today's Health</h2>
+
+      <div class="metrics">
+
+        <div class="metric">
+          <div class="metric-title">
+            😴 Sleep
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            ❤️ Resting HR
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            🫀 HRV
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            🫁 VO₂ Max
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            👣 Steps
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            🔥 Active Calories
+          </div>
+
+          <div class="metric-value">
+            —
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- NUTRITION -->
+
+    <div class="section">
+
+      <h2>🍎 Today's Nutrition</h2>
+
+      <div class="goal-header">
+
+        <span>
+          Calories
+        </span>
+
+        <strong>
+          <span id="totalCalories">
+            0
+          </span>
+          /
+          2200
+        </strong>
+
+      </div>
+
+      <div class="progress">
+
+        <div
+          class="progress-bar"
+          id="calorieProgress">
+        </div>
+
+      </div>
+
+
+      <br>
+
+
+      <div class="goal-header">
+
+        <span>
+          Protein
+        </span>
+
+        <strong>
+          <span id="totalProtein">
+            0
+          </span>g
+          /
+          200g
+        </strong>
+
+      </div>
+
+      <div class="progress">
+
+        <div
+          class="progress-bar"
+          id="proteinProgress">
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- TODAY'S TARGETS -->
+
+    <div class="section">
+
+      <h2>🎯 Daily Targets</h2>
+
+      <div class="metrics">
+
+        <div class="metric">
+          <div class="metric-title">
+            Calories
+          </div>
+
+          <div class="metric-value">
+            2,200
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            Protein
+          </div>
+
+          <div class="metric-value">
+            200g
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            Sleep
+          </div>
+
+          <div class="metric-value">
+            7–8 hrs
+          </div>
+        </div>
+
+
+        <div class="metric">
+          <div class="metric-title">
+            Strength
+          </div>
+
+          <div class="metric-value">
+            3× / week
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- FOOD -->
+
+  <div id="food" class="hidden">
+
+    <div class="section">
+
+      <h2>🍎 Log Food</h2>
+
+      <p class="small">
+        For now, you can enter estimated calories and protein.
+        Later we'll make ChatGPT handle natural-language food logging.
+      </p>
+
+      <input
+        id="foodName"
+        placeholder="What did you eat?"
+      >
+
+      <input
+        id="foodCalories"
+        type="number"
+        placeholder="Calories"
+      >
+
+      <input
+        id="foodProtein"
+        type="number"
+        placeholder="Protein (g)"
+      >
+
+      <button
+        class="primary"
+        onclick="addFood()">
+        Add Food
+      </button>
+
+    </div>
+
+
+    <div class="section">
+
+      <h2>
+        Today's Food
+      </h2>
+
+      <div id="foodList">
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- WORKOUTS -->
+
+  <div id="workouts" class="hidden">
+
+    <div class="section">
+
+      <h2>
+        🏋️ Weekly Training
+      </h2>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Monday
+        </div>
+
+        <div class="workout-type">
+          Morning mobility/yoga
+          <br>
+          2-mile ruck
+          <br>
+          Strength training
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Tuesday
+        </div>
+
+        <div class="workout-type">
+          Morning mobility/yoga
+          <br>
+          Run or walk
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Wednesday
+        </div>
+
+        <div class="workout-type">
+          Morning mobility/yoga
+          <br>
+          2-mile ruck
+          <br>
+          Strength training
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Thursday
+        </div>
+
+        <div class="workout-type">
+          Morning mobility/yoga
+          <br>
+          Run or walk
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Friday
+        </div>
+
+        <div class="workout-type">
+          Morning mobility/yoga
+          <br>
+          2-mile ruck
+          <br>
+          Strength training
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Saturday
+        </div>
+
+        <div class="workout-type">
+          Walking / optional cardio
+        </div>
+
+      </div>
+
+
+      <div class="workout-entry">
+
+        <div class="workout-day">
+          Sunday
+        </div>
+
+        <div class="workout-type">
+          Rest / recovery
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- PROFILE -->
+
+  <div id="profile" class="hidden">
+
+    <div class="section">
+
+      <h2>
+        👤 My Profile
+      </h2>
+
+      <div class="metrics">
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Height
+          </div>
+
+          <div class="metric-value">
+            6'1"
+          </div>
+
+        </div>
+
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Current Weight
+          </div>
+
+          <div class="metric-value">
+            220 lb
+          </div>
+
+        </div>
+
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Goal Weight
+          </div>
+
+          <div class="metric-value">
+            190 lb
+          </div>
+
+        </div>
+
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Daily Calories
+          </div>
+
+          <div class="metric-value">
+            2,200
+          </div>
+
+        </div>
+
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Daily Protein
+          </div>
+
+          <div class="metric-value">
+            200g
+          </div>
+
+        </div>
+
+
+        <div class="metric">
+
+          <div class="metric-title">
+            Sleep Goal
+          </div>
+
+          <div class="metric-value">
+            7–8 hrs
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="section">
+
+      <h2>
+        🎯 Primary Goal
+      </h2>
+
+      <p>
+        Reduce body weight from
+        <strong>220 lb</strong>
+        toward
+        <strong>190 lb</strong>
+        while maintaining strength,
+        improving cardiovascular fitness,
+        and maintaining good recovery.
+      </p>
+
+    </div>
+
+
+    <div class="section">
+
+      <h2>
+        🏋️ Training Goal
+      </h2>
+
+      <p>
+        3 strength sessions per week,
+        combined with rucking, walking/cardio,
+        and morning mobility work.
+      </p>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+let foods = JSON.parse(
+  localStorage.getItem("foods") || "[]"
+);
+
+
+function showTab(tab, button) {
+
+  document
+    .getElementById("dashboard")
+    .classList.add("hidden");
+
+  document
+    .getElementById("food")
+    .classList.add("hidden");
+
+  document
+    .getElementById("workouts")
+    .classList.add("hidden");
+
+  document
+    .getElementById("profile")
+    .classList.add("hidden");
+
+
+  document
+    .getElementById(tab)
+    .classList.remove("hidden");
+
+
+  document
+    .querySelectorAll(".tabs button")
+    .forEach(b => {
+      b.classList.remove("active");
+    });
+
+
+  button.classList.add("active");
+
+
+  if (tab === "food") {
+    renderFood();
+  }
+
+}
+
+
+function addFood() {
+
+  const name =
+    document
+      .getElementById("foodName")
+      .value;
+
+  const calories =
+    Number(
+      document
+        .getElementById("foodCalories")
+        .value
+    );
+
+  const protein =
+    Number(
+      document
+        .getElementById("foodProtein")
+        .value
+    );
+
+
+  if (!name) return;
+
+
+  foods.push({
+    name: name,
+    calories: calories,
+    protein: protein,
+    date: new Date().toDateString()
+  });
+
+
+  localStorage.setItem(
+    "foods",
+    JSON.stringify(foods)
+  );
+
+
+  document
+    .getElementById("foodName")
+    .value = "";
+
+  document
+    .getElementById("foodCalories")
+    .value = "";
+
+  document
+    .getElementById("foodProtein")
+    .value = "";
+
+
+  renderFood();
+
+  updateNutrition();
+
+}
+
+
+function renderFood() {
+
+  const list =
+    document.getElementById("foodList");
+
+
+  if (foods.length === 0) {
+
+    list.innerHTML =
+      "<p class='small'>No food logged yet.</p>";
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    foods.map(food => `
+
+      <div class="food-entry">
+
+        <strong>
+          ${food.name}
+        </strong>
+
+        <div class="small">
+
+          ${food.calories}
+          calories ·
+          ${food.protein}g
+          protein
+
+        </div>
+
+      </div>
+
+    `).join("");
+
+}
+
+
+function updateNutrition() {
+
+  const today =
+    new Date().toDateString();
+
+
+  let calories = 0;
+
+  let protein = 0;
+
+
+  foods
+    .filter(food => food.date === today)
+    .forEach(food => {
+
+      calories += food.calories;
+
+      protein += food.protein;
+
+    });
+
+
+  document
+    .getElementById("totalCalories")
+    .textContent = calories;
+
+
+  document
+    .getElementById("totalProtein")
+    .textContent =
+      protein + "g";
+
+
+  const caloriePercent =
+    Math.min(
+      calories / 2200 * 100,
+      100
+    );
+
+
+  const proteinPercent =
+    Math.min(
+      protein / 200 * 100,
+      100
+    );
+
+
+  document
+    .getElementById("calorieProgress")
+    .style.width =
+      caloriePercent + "%";
+
+
+  document
+    .getElementById("proteinProgress")
+    .style.width =
+      proteinPercent + "%";
+
+}
+
+
+function updateWeightProgress() {
+
+  const current = 220;
+
+  const goal = 190;
+
+  const starting = 220;
+
+
+  const lost =
+    starting - current;
+
+
+  const total =
+    starting - goal;
+
+
+  const percentage =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        lost / total * 100
+      )
+    );
+
+
+  document
+    .getElementById("weightProgress")
+    .style.width =
+      percentage + "%";
+
+
+  document
+    .getElementById("weightRemaining")
+    .textContent =
+      (current - goal) + " lb";
+
+}
+
+
+renderFood();
+
+updateNutrition();
+
+updateWeightProgress();
+
+</script>
+
+</body>
+</html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#111827">
 <title>Health Dashboard</title>
 
 <style>
