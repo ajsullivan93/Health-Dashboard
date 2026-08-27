@@ -973,7 +973,7 @@ select {
       <input
         id="appleHealthFile"
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,application/xml,text/xml,.xml"
       >
 
       <p class="small">Or paste a JSON export:</p>
@@ -988,6 +988,7 @@ select {
       </button>
 
       <div class="status small" id="appleHealthImportStatus"></div>
+      <div class="recommendation hidden" id="appleHealthImportSummary"></div>
 
     </div>
 
@@ -2092,13 +2093,237 @@ const APPLE_HEALTH_METRICS = [
 ];
 
 
+function hashImport(content) {
+
+  let hash = 5381;
+
+  for (let index = 0;
+       index < content.length;
+       index += 1) {
+    hash =
+      (hash * 33) ^
+      content.charCodeAt(index);
+  }
+
+  return (hash >>> 0).toString(36);
+
+}
+
+
+function createImportFingerprint(payload) {
+
+  const days = payload.days
+    .map(day => ({
+      date: day.date,
+      sleepHours: day.sleepHours,
+      restingHeartRate: day.restingHeartRate,
+      hrv: day.hrv,
+      vo2Max: day.vo2Max,
+      steps: day.steps,
+      activeCalories: day.activeCalories,
+      weight: day.weight,
+      workouts: (day.workouts || [])
+        .map(workout => ({
+          name: workout.name,
+          type: workout.type,
+          duration: workout.duration,
+          distance: workout.distance
+        }))
+        .sort((a, b) =>
+          JSON.stringify(a).localeCompare(
+            JSON.stringify(b)
+          )
+        )
+    }))
+    .sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+  return hashImport(JSON.stringify(days));
+
+}
+
+
+function parseAppleHealthXml(content) {
+
+  const xml =
+    new DOMParser()
+      .parseFromString(
+        content,
+        "application/xml"
+      );
+
+  if (xml.querySelector("parsererror")) {
+    throw new Error(
+      "The XML export could not be parsed."
+    );
+  }
+
+  const grouped = {};
+
+  const getDay = date => {
+
+    if (!grouped[date]) {
+      grouped[date] = {
+        date: date,
+        workouts: [],
+        _values: {}
+      };
+    }
+
+    return grouped[date];
+
+  };
+
+  const addValue =
+    (day, metric, value) => {
+
+      if (!Number.isFinite(value)) {
+        return;
+      }
+
+      if (!day._values[metric]) {
+        day._values[metric] = [];
+      }
+
+      day._values[metric].push(value);
+
+    };
+
+  xml.querySelectorAll("Record")
+    .forEach(record => {
+
+      const type =
+        record.getAttribute("type") || "";
+
+      const startDate =
+        record.getAttribute("startDate") || "";
+
+      const endDate =
+        record.getAttribute("endDate") || "";
+
+      const date = startDate.slice(0, 10);
+
+      const value =
+        Number(record.getAttribute("value"));
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return;
+      }
+
+      const day = getDay(date);
+
+      if (type.includes("SleepAnalysis")) {
+
+        if (!/Awake/i.test(
+          record.getAttribute("value") || ""
+        )) {
+          const hours =
+            (new Date(endDate) -
+             new Date(startDate)) /
+            (1000 * 60 * 60);
+
+          addValue(day, "sleepHours", hours);
+        }
+
+      } else if (type.includes("RestingHeartRate")) {
+        addValue(day, "restingHeartRate", value);
+      } else if (type.includes(
+        "HeartRateVariabilitySDNN"
+      )) {
+        addValue(day, "hrv", value);
+      } else if (type.includes("VO2Max")) {
+        addValue(day, "vo2Max", value);
+      } else if (type.includes("StepCount")) {
+        addValue(day, "steps", value);
+      } else if (type.includes(
+        "ActiveEnergyBurned"
+      )) {
+        addValue(day, "activeCalories", value);
+      } else if (type.includes("BodyMass")) {
+        day._values.weight = [value];
+      }
+
+    });
+
+  xml.querySelectorAll("Workout")
+    .forEach(workout => {
+
+      const startDate =
+        workout.getAttribute("startDate") || "";
+
+      const date = startDate.slice(0, 10);
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return;
+      }
+
+      getDay(date).workouts.push({
+        name:
+          workout.getAttribute(
+            "workoutActivityType"
+          ) || "Apple Health workout",
+        type:
+          workout.getAttribute(
+            "workoutActivityType"
+          ) || "other",
+        duration:
+          Number(
+            workout.getAttribute("duration")
+          ) || 0
+      });
+
+    });
+
+  return {
+    version: APPLE_HEALTH_IMPORT_VERSION,
+    days: Object.values(grouped)
+      .map(day => {
+
+        APPLE_HEALTH_METRICS
+          .forEach(metric => {
+
+            const values = day._values[metric];
+
+            if (!values || !values.length) {
+              return;
+            }
+
+            day[metric] =
+              metric === "steps" ||
+              metric === "activeCalories" ||
+              metric === "sleepHours"
+                ? values.reduce(
+                    (sum, value) =>
+                      sum + value,
+                    0
+                  )
+                : values.reduce(
+                    (sum, value) =>
+                      sum + value,
+                    0
+                  ) / values.length;
+
+          });
+
+        delete day._values;
+
+        return day;
+
+      })
+  };
+
+}
+
+
 function validateAppleHealthImport(payload) {
 
   if (!payload ||
       payload.version !== APPLE_HEALTH_IMPORT_VERSION ||
-      !Array.isArray(payload.days)) {
+      !Array.isArray(payload.days) ||
+      payload.days.length === 0) {
     throw new Error(
-      "Expected version 1 with a days array."
+      "Expected version 1 with a non-empty days array."
     );
   }
 
@@ -2114,6 +2339,7 @@ function validateAppleHealthImport(payload) {
     APPLE_HEALTH_METRICS.forEach(metric => {
       if (record[metric] !== undefined &&
           (typeof record[metric] !== "number" ||
+           !Number.isFinite(record[metric]) ||
            record[metric] < 0)) {
         throw new Error(
           "Day " + (index + 1) +
@@ -2130,8 +2356,8 @@ function validateAppleHealthImport(payload) {
       );
     }
 
-    if (Array.isArray(record.workouts)) {
-      record.workouts.forEach(workout => {
+    (record.workouts || [])
+      .forEach(workout => {
         if (!workout ||
             typeof workout.name !== "string") {
           throw new Error(
@@ -2140,7 +2366,6 @@ function validateAppleHealthImport(payload) {
           );
         }
       });
-    }
 
   });
 
@@ -2153,6 +2378,27 @@ function applyAppleHealthImport(payload) {
 
   const days =
     validateAppleHealthImport(payload);
+
+  healthHistory.imports =
+    healthHistory.imports || [];
+
+  const fingerprint =
+    createImportFingerprint(payload);
+
+  if (healthHistory.imports.some(imported =>
+    imported.fingerprint === fingerprint
+  )) {
+    return {
+      duplicate: true,
+      days: 0,
+      metrics: 0,
+      workouts: 0
+    };
+  }
+
+  let metricCount = 0;
+
+  let workoutCount = 0;
 
   days.forEach(record => {
 
@@ -2170,20 +2416,14 @@ function applyAppleHealthImport(payload) {
             record[metric];
         }
 
+        metricCount += 1;
+
       }
 
     });
 
-    if (Array.isArray(record.workouts)) {
-
-      record.workouts.forEach(workout => {
-
-        if (!workout ||
-            typeof workout.name !== "string") {
-          throw new Error(
-            "Workouts need a name."
-          );
-        }
+    (record.workouts || [])
+      .forEach(workout => {
 
         const duplicate =
           day.workouts.some(existing =>
@@ -2198,17 +2438,23 @@ function applyAppleHealthImport(payload) {
             source: "apple-health",
             completed: true
           });
+
+          workoutCount += 1;
         }
 
       });
-
-    }
 
     day.healthMetrics.source =
       "apple-health-import";
 
     refreshHealthScore(record.date);
 
+  });
+
+  healthHistory.imports.push({
+    fingerprint: fingerprint,
+    importedAt: new Date().toISOString(),
+    days: days.length
   });
 
   saveHealthHistory();
@@ -2218,7 +2464,38 @@ function applyAppleHealthImport(payload) {
   renderTrends();
   renderRecentWorkouts();
 
-  return days.length;
+  return {
+    duplicate: false,
+    days: days.length,
+    metrics: metricCount,
+    workouts: workoutCount
+  };
+
+}
+
+
+function showAppleHealthImportSummary(result) {
+
+  const summary =
+    document.getElementById(
+      "appleHealthImportSummary"
+    );
+
+  summary.classList.remove("hidden");
+
+  summary.innerHTML =
+    result.duplicate
+      ? "<strong>No changes made.</strong><br>This exact export was already imported."
+      : "<strong>Import complete.</strong><br>" +
+        result.days + " day" +
+        (result.days === 1 ? "" : "s") +
+        ", " + result.metrics +
+        " health metric" +
+        (result.metrics === 1 ? "" : "s") +
+        ", and " + result.workouts +
+        " workout" +
+        (result.workouts === 1 ? "" : "s") +
+        " added to your history.";
 
 }
 
@@ -2244,22 +2521,31 @@ function importAppleHealthData() {
 
     try {
 
-      const count =
-        applyAppleHealthImport(
-          JSON.parse(content)
-        );
+      const payload =
+        content.trim().startsWith("<")
+          ? parseAppleHealthXml(content)
+          : JSON.parse(content);
+
+      const result =
+        applyAppleHealthImport(payload);
 
       status.textContent =
-        "Imported " +
-        count +
-        " day" +
-        (count === 1 ? "" : "s") +
-        " of Apple Health data.";
+        result.duplicate
+          ? "This export has already been imported."
+          : "Apple Health data is now available across the dashboard.";
+
+      showAppleHealthImportSummary(result);
 
     } catch (error) {
 
       status.textContent =
         "Import failed: " + error.message;
+
+      document
+        .getElementById(
+          "appleHealthImportSummary"
+        )
+        .classList.add("hidden");
 
     }
 
@@ -2276,11 +2562,10 @@ function importAppleHealthData() {
     importText(text);
   } else {
     status.textContent =
-      "Choose a JSON file or paste an export first.";
+      "Choose an export file or paste JSON first.";
   }
 
 }
-
 
 function formatWorkout(workout) {
 
