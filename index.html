@@ -222,6 +222,40 @@ select {
   margin-top: 8px;
   font-weight: 600;
 }
+
+.trend-periods {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.trend-periods button {
+  padding: 10px 6px;
+  background: #f9fafb;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.trend-periods button.active {
+  background: #111827;
+  color: white;
+}
+
+.trend-summary {
+  margin-bottom: 14px;
+}
+
+.trend-list {
+  margin-top: 14px;
+}
+
+@media (max-width: 480px) {
+  .trend-periods {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 </style>
 </head>
 
@@ -249,6 +283,10 @@ select {
 
     <button onclick="showTab('profile', this)">
       Goals
+    </button>
+
+    <button onclick="showTab('trends', this)">
+      Trends
     </button>
   </div>
 
@@ -536,7 +574,7 @@ select {
 
       <a
         class="chatgpt-food-link"
-        href="https://chatgpt.com/share/6a8f57db-ffd0-83ea-a55a-5c10890cb819Keep"
+        href="https://chatgpt.com/share/6a8f57db-ffd0-83ea-a55a-5c10890cb819"
         target="_blank"
         rel="noopener noreferrer">
         💬 Log Food with ChatGPT
@@ -576,6 +614,92 @@ select {
 
       <div id="foodList">
       </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- TRENDS -->
+
+  <div id="trends" class="hidden">
+
+    <div class="section">
+
+      <h2>📈 Nutrition Trends</h2>
+
+      <p class="small">
+        Review calories and protein from your saved food logs.
+      </p>
+
+      <div class="trend-periods">
+        <button class="active" onclick="setTrendRange('daily', this)">
+          Daily
+        </button>
+        <button onclick="setTrendRange('weekly', this)">
+          Weekly
+        </button>
+        <button onclick="setTrendRange('monthly', this)">
+          Monthly
+        </button>
+        <button onclick="setTrendRange('custom', this)">
+          Custom
+        </button>
+      </div>
+
+      <div class="metrics trend-summary">
+        <div class="metric">
+          <div class="metric-title">
+            Calories
+          </div>
+          <div class="metric-value" id="trendCalories">
+            0
+          </div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-title">
+            Protein
+          </div>
+          <div class="metric-value" id="trendProtein">
+            0g
+          </div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-title">
+            Food Entries
+          </div>
+          <div class="metric-value" id="trendEntries">
+            0
+          </div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-title" id="trendAverageLabel">
+            Daily Avg Calories
+          </div>
+          <div class="metric-value" id="trendAverage">
+            0
+          </div>
+        </div>
+      </div>
+
+      <div id="customDateFields" class="hidden">
+        <label class="small" for="trendStartDate">Start date</label>
+        <input id="trendStartDate" type="date">
+
+        <label class="small" for="trendEndDate">End date</label>
+        <input id="trendEndDate" type="date">
+
+        <button class="primary" onclick="renderTrends()">
+          Apply Date Range
+        </button>
+      </div>
+
+      <div id="trendRangeLabel" class="small"></div>
+
+      <div id="trendList" class="trend-list"></div>
 
     </div>
 
@@ -861,6 +985,10 @@ function showTab(tab, button) {
     .getElementById("profile")
     .classList.add("hidden");
 
+  document
+    .getElementById("trends")
+    .classList.add("hidden");
+
 
   document
     .getElementById(tab)
@@ -879,6 +1007,10 @@ function showTab(tab, button) {
 
   if (tab === "food") {
     renderFood();
+  }
+
+  if (tab === "trends") {
+    renderTrends();
   }
 
 }
@@ -1041,6 +1173,288 @@ function updateNutrition() {
     .getElementById("proteinProgress")
     .style.width =
       proteinPercent + "%";
+
+}
+
+
+function toLocalDateKey(date) {
+
+  const year = date.getFullYear();
+
+  const month =
+    String(date.getMonth() + 1).padStart(2, "0");
+
+  const day =
+    String(date.getDate()).padStart(2, "0");
+
+  return year + "-" + month + "-" + day;
+
+}
+
+
+function getFoodDateKey(food) {
+
+  const date =
+    food.date
+      ? new Date(food.date)
+      : new Date();
+
+  return isNaN(date)
+    ? toLocalDateKey(new Date())
+    : toLocalDateKey(date);
+
+}
+
+
+function startOfWeek(date) {
+
+  const start = new Date(date);
+
+  const day = start.getDay();
+
+  const offset =
+    day === 0
+      ? -6
+      : 1 - day;
+
+  start.setDate(start.getDate() + offset);
+
+  start.setHours(0, 0, 0, 0);
+
+  return start;
+
+}
+
+
+function setTrendRange(range, button) {
+
+  document
+    .querySelectorAll(".trend-periods button")
+    .forEach(item => {
+      item.classList.remove("active");
+    });
+
+  if (button) {
+    button.classList.add("active");
+  }
+
+  document
+    .getElementById("customDateFields")
+    .classList.toggle(
+      "hidden",
+      range !== "custom"
+    );
+
+  document
+    .getElementById("trends")
+    .dataset.range = range;
+
+  renderTrends();
+
+}
+
+
+function renderTrends() {
+
+  const trends =
+    document.getElementById("trends");
+
+  const range =
+    trends.dataset.range || "daily";
+
+  const now = new Date();
+
+  let start = new Date(now);
+
+  let end = new Date(now);
+
+  if (range === "weekly") {
+
+    start = startOfWeek(now);
+
+  } else if (range === "monthly") {
+
+    start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+  } else if (range === "custom") {
+
+    const startInput =
+      document.getElementById("trendStartDate");
+
+    const endInput =
+      document.getElementById("trendEndDate");
+
+    if (!startInput.value) {
+      startInput.value =
+        toLocalDateKey(now);
+    }
+
+    if (!endInput.value) {
+      endInput.value =
+        toLocalDateKey(now);
+    }
+
+    start = new Date(
+      startInput.value + "T00:00:00"
+    );
+
+    end = new Date(
+      endInput.value + "T23:59:59"
+    );
+
+  }
+
+  start.setHours(0, 0, 0, 0);
+
+  end.setHours(23, 59, 59, 999);
+
+  if (start > end) {
+
+    const originalStart = start;
+
+    start = end;
+
+    end = originalStart;
+
+  }
+
+  const startKey = toLocalDateKey(start);
+
+  const endKey = toLocalDateKey(end);
+
+  const entries =
+    foods.filter(food => {
+
+      const dateKey =
+        getFoodDateKey(food);
+
+      return dateKey >= startKey &&
+        dateKey <= endKey;
+
+    });
+
+  const totals =
+    entries.reduce(
+      (summary, food) => {
+
+        summary.calories +=
+          Number(food.calories) || 0;
+
+        summary.protein +=
+          Number(food.protein) || 0;
+
+        return summary;
+
+      },
+      {
+        calories: 0,
+        protein: 0
+      }
+    );
+
+  const dayCount =
+    Math.max(
+      1,
+      Math.round(
+        (end - start) /
+        (1000 * 60 * 60 * 24)
+      ) + 1
+    );
+
+  document
+    .getElementById("trendCalories")
+    .textContent = totals.calories;
+
+  document
+    .getElementById("trendProtein")
+    .textContent =
+      totals.protein + "g";
+
+  document
+    .getElementById("trendEntries")
+    .textContent = entries.length;
+
+  document
+    .getElementById("trendAverage")
+    .textContent =
+      Math.round(
+        totals.calories / dayCount
+      );
+
+  document
+    .getElementById("trendRangeLabel")
+    .textContent =
+      start.toLocaleDateString() +
+      " – " +
+      end.toLocaleDateString();
+
+  const list =
+    document.getElementById("trendList");
+
+  if (entries.length === 0) {
+
+    list.innerHTML =
+      "<p class='small'>No food logged for this period.</p>";
+
+    return;
+
+  }
+
+  const dailyTotals = {};
+
+  entries.forEach(food => {
+
+    const dateKey =
+      getFoodDateKey(food);
+
+    if (!dailyTotals[dateKey]) {
+      dailyTotals[dateKey] = {
+        calories: 0,
+        protein: 0
+      };
+    }
+
+    dailyTotals[dateKey].calories +=
+      Number(food.calories) || 0;
+
+    dailyTotals[dateKey].protein +=
+      Number(food.protein) || 0;
+
+  });
+
+  list.innerHTML =
+    Object.entries(dailyTotals)
+      .sort((a, b) =>
+        b[0].localeCompare(a[0])
+      )
+      .map(([date, totals]) => `
+
+        <div class="food-entry">
+          <strong>
+            ${new Date(
+              date + "T00:00:00"
+            ).toLocaleDateString(
+              undefined,
+              {
+                weekday: "short",
+                month: "short",
+                day: "numeric"
+              }
+            )}
+          </strong>
+
+          <div class="small">
+            ${totals.calories} calories ·
+            ${totals.protein}g protein
+          </div>
+        </div>
+
+      `)
+      .join("");
 
 }
 
