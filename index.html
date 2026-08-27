@@ -178,6 +178,37 @@ button {
   margin-top: 3px;
 }
 
+.workout-complete {
+  margin-top: 10px;
+  padding: 9px 12px;
+  background: #111827;
+  color: white;
+  font-size: 14px;
+}
+
+.workout-complete.done {
+  background: #059669;
+}
+
+.workout-status {
+  margin-top: 8px;
+  color: #059669;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.workout-log-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+
+@media (max-width: 480px) {
+  .workout-log-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 input,
 select {
   width: 100%;
@@ -677,6 +708,15 @@ select {
       <div class="metrics trend-summary">
         <div class="metric">
           <div class="metric-title">
+            Workouts
+          </div>
+          <div class="metric-value" id="trendWorkouts">
+            0
+          </div>
+        </div>
+
+        <div class="metric">
+          <div class="metric-title">
             Calories
           </div>
           <div class="metric-value" id="trendCalories">
@@ -899,6 +939,9 @@ select {
         🏋️ Weekly Training
       </h2>
 
+      <p class="small">
+        Mark scheduled workouts complete for this week. Each completion is saved to its scheduled date.
+      </p>
 
       <div class="workout-entry">
 
@@ -914,8 +957,16 @@ select {
           Strength training
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutMonday"
+          onclick="completeScheduledWorkout('Monday', 'Morning mobility/yoga · 2-mile ruck · Strength training')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusMonday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -929,8 +980,16 @@ select {
           Run or walk
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutTuesday"
+          onclick="completeScheduledWorkout('Tuesday', 'Morning mobility/yoga · Run or walk')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusTuesday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -946,8 +1005,16 @@ select {
           Strength training
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutWednesday"
+          onclick="completeScheduledWorkout('Wednesday', 'Morning mobility/yoga · 2-mile ruck · Strength training')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusWednesday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -961,8 +1028,16 @@ select {
           Run or walk
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutThursday"
+          onclick="completeScheduledWorkout('Thursday', 'Morning mobility/yoga · Run or walk')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusThursday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -978,8 +1053,16 @@ select {
           Strength training
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutFriday"
+          onclick="completeScheduledWorkout('Friday', 'Morning mobility/yoga · 2-mile ruck · Strength training')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusFriday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -991,8 +1074,16 @@ select {
           Walking / optional cardio
         </div>
 
-      </div>
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutSaturday"
+          onclick="completeScheduledWorkout('Saturday', 'Walking / optional cardio')">
+          Mark Complete
+        </button>
 
+        <div class="workout-status" id="scheduledWorkoutStatusSaturday"></div>
+
+      </div>
 
       <div class="workout-entry">
 
@@ -1004,7 +1095,49 @@ select {
           Rest / recovery
         </div>
 
+        <button
+          class="workout-complete"
+          id="scheduledWorkoutSunday"
+          onclick="completeScheduledWorkout('Sunday', 'Rest / recovery')">
+          Mark Complete
+        </button>
+
+        <div class="workout-status" id="scheduledWorkoutStatusSunday"></div>
+
       </div>
+
+    </div>
+
+    <div class="section">
+
+      <h2>📝 Log Actual Workout</h2>
+
+      <p class="small">
+        Save the details of any completed exercise to the date you trained.
+      </p>
+
+      <input id="actualWorkoutName" placeholder="Exercise or workout name">
+
+      <div class="workout-log-grid">
+        <input id="actualWorkoutSets" type="number" min="0" placeholder="Sets">
+        <input id="actualWorkoutReps" type="number" min="0" placeholder="Reps">
+        <input id="actualWorkoutDistance" type="number" min="0" step="0.1" placeholder="Distance (mi)">
+        <input id="actualWorkoutDuration" type="number" min="0" placeholder="Duration (min)">
+      </div>
+
+      <label class="small" for="actualWorkoutDate">Workout date</label>
+      <input id="actualWorkoutDate" type="date">
+
+      <button class="primary" onclick="logActualWorkout()">
+        Save Workout
+      </button>
+
+    </div>
+
+    <div class="section">
+
+      <h2>📚 Recent Workout History</h2>
+      <div id="recentWorkoutList"></div>
 
     </div>
 
@@ -1248,12 +1381,15 @@ function recordWeight(weight, date) {
 
 function recordWorkout(workout, date) {
 
+  const workoutDate =
+    date || toLocalDateKey(new Date());
+
   const day =
-    getHistoryDay(
-      date || toLocalDateKey(new Date())
-    );
+    getHistoryDay(workoutDate);
 
   day.workouts.push(workout);
+
+  updateWorkoutHealthScore(workoutDate);
 
   saveHealthHistory();
 
@@ -1271,6 +1407,14 @@ function recordHealthMetrics(metrics, date) {
     ...day.healthMetrics,
     ...metrics
   };
+
+  if (Object.prototype.hasOwnProperty.call(
+    metrics,
+    "healthScore"
+  )) {
+    day.healthMetrics.healthScoreSource =
+      "manual";
+  }
 
   saveHealthHistory();
 
@@ -1381,6 +1525,11 @@ function showTab(tab, button) {
 
   if (tab === "trends") {
     renderTrends();
+  }
+
+  if (tab === "workouts") {
+    renderWorkoutSchedule();
+    renderRecentWorkouts();
   }
 
   if (tab === "history") {
@@ -1712,6 +1861,13 @@ function renderTrends() {
       0
     );
 
+  const workoutSessions =
+    historyDays.reduce(
+      (total, day) =>
+        total + day.workouts.length,
+      0
+    );
+
   const totals =
     historyDays.reduce(
       (summary, day) => {
@@ -1739,6 +1895,10 @@ function renderTrends() {
         (1000 * 60 * 60 * 24)
       ) + 1
     );
+
+  document
+    .getElementById("trendWorkouts")
+    .textContent = workoutSessions;
 
   document
     .getElementById("trendCalories")
@@ -1813,6 +1973,275 @@ function renderTrends() {
 
       `)
       .join("");
+
+}
+
+
+function formatWorkout(workout) {
+
+  if (typeof workout === "string") {
+    return workout;
+  }
+
+  const details = [
+    workout.name ||
+      workout.type ||
+      "Workout"
+  ];
+
+  if (workout.sets) {
+    details.push(workout.sets + " sets");
+  }
+
+  if (workout.reps) {
+    details.push(workout.reps + " reps");
+  }
+
+  if (workout.distance) {
+    details.push(workout.distance + " mi");
+  }
+
+  if (workout.duration) {
+    details.push(workout.duration + " min");
+  }
+
+  return details.join(" · ");
+
+}
+
+
+function getScheduledWorkoutDate(dayName) {
+
+  const dayIndexes = {
+    Monday: 0,
+    Tuesday: 1,
+    Wednesday: 2,
+    Thursday: 3,
+    Friday: 4,
+    Saturday: 5,
+    Sunday: 6
+  };
+
+  const date = startOfWeek(new Date());
+
+  date.setDate(date.getDate() + dayIndexes[dayName]);
+
+  return toLocalDateKey(date);
+
+}
+
+
+function updateWorkoutHealthScore(date) {
+
+  const day = getHistoryDay(date);
+
+  const workoutBonus =
+    Math.min(10, day.workouts.length * 5);
+
+  if (day.healthMetrics.healthScoreSource !== "manual") {
+    day.healthMetrics.healthScore =
+      Math.min(100, 75 + workoutBonus);
+
+    day.healthMetrics.healthScoreSource =
+      "workout";
+  }
+
+  day.healthMetrics.workoutSessions =
+    day.workouts.length;
+
+  if (date === toLocalDateKey(new Date())) {
+    document
+      .getElementById("healthScore")
+      .textContent =
+        day.healthMetrics.healthScore;
+  }
+
+}
+
+
+function completeScheduledWorkout(dayName, workoutName) {
+
+  const date = getScheduledWorkoutDate(dayName);
+
+  const day = getHistoryDay(date);
+
+  const alreadyLogged =
+    day.workouts.some(workout =>
+      workout.scheduledDay === dayName
+    );
+
+  if (!alreadyLogged) {
+    recordWorkout(
+      {
+        name: workoutName,
+        scheduledDay: dayName,
+        completed: true
+      },
+      date
+    );
+  }
+
+  renderWorkoutSchedule();
+  renderRecentWorkouts();
+  renderHistory();
+  renderTrends();
+
+}
+
+
+function renderWorkoutSchedule() {
+
+  [
+    "Monday", "Tuesday", "Wednesday",
+    "Thursday", "Friday", "Saturday",
+    "Sunday"
+  ].forEach(dayName => {
+
+    const date = getScheduledWorkoutDate(dayName);
+
+    const day = getHistoryDay(date);
+
+    const completed =
+      day.workouts.some(workout =>
+        workout.scheduledDay === dayName
+      );
+
+    const button =
+      document.getElementById(
+        "scheduledWorkout" + dayName
+      );
+
+    const status =
+      document.getElementById(
+        "scheduledWorkoutStatus" + dayName
+      );
+
+    if (!button || !status) {
+      return;
+    }
+
+    button.classList.toggle("done", completed);
+
+    button.textContent =
+      completed ? "Completed" : "Mark Complete";
+
+    status.textContent =
+      completed
+        ? "✓ Logged for " +
+          new Date(
+            date + "T00:00:00"
+          ).toLocaleDateString()
+        : "";
+
+  });
+
+}
+
+
+function logActualWorkout() {
+
+  const nameInput =
+    document.getElementById("actualWorkoutName");
+
+  const dateInput =
+    document.getElementById("actualWorkoutDate");
+
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    return;
+  }
+
+  const date =
+    dateInput.value ||
+    toLocalDateKey(new Date());
+
+  recordWorkout(
+    {
+      name: name,
+      sets: Number(
+        document
+          .getElementById("actualWorkoutSets")
+          .value
+      ) || 0,
+      reps: Number(
+        document
+          .getElementById("actualWorkoutReps")
+          .value
+      ) || 0,
+      distance: Number(
+        document
+          .getElementById("actualWorkoutDistance")
+          .value
+      ) || 0,
+      duration: Number(
+        document
+          .getElementById("actualWorkoutDuration")
+          .value
+      ) || 0,
+      completed: true
+    },
+    date
+  );
+
+  [
+    "actualWorkoutName",
+    "actualWorkoutSets",
+    "actualWorkoutReps",
+    "actualWorkoutDistance",
+    "actualWorkoutDuration"
+  ].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+
+  renderWorkoutSchedule();
+  renderRecentWorkouts();
+  renderHistory();
+  renderTrends();
+
+}
+
+
+function renderRecentWorkouts() {
+
+  const list =
+    document.getElementById("recentWorkoutList");
+
+  if (!list) {
+    return;
+  }
+
+  const workouts =
+    Object.values(healthHistory.days)
+      .flatMap(day =>
+        day.workouts.map(workout => ({
+          date: day.date,
+          workout: workout
+        }))
+      )
+      .sort((a, b) =>
+        b.date.localeCompare(a.date)
+      )
+      .slice(0, 10);
+
+  list.innerHTML =
+    workouts.length === 0
+      ? "<p class='small'>No workouts logged yet.</p>"
+      : workouts.map(item => `
+
+          <div class="workout-entry">
+            <strong>
+              ${new Date(
+                item.date + "T00:00:00"
+              ).toLocaleDateString()}
+            </strong>
+
+            <div class="small">
+              ${formatWorkout(item.workout)}
+            </div>
+          </div>
+
+        `).join("");
 
 }
 
@@ -2301,11 +2730,23 @@ function updateWeightProgress() {
 
 syncNutritionHistory();
 
+const actualWorkoutDate =
+  document.getElementById("actualWorkoutDate");
+
+if (actualWorkoutDate) {
+  actualWorkoutDate.value =
+    toLocalDateKey(new Date());
+}
+
 renderFood();
 
 updateNutrition();
 
 updateWeightProgress();
+
+renderWorkoutSchedule();
+
+renderRecentWorkouts();
 
 </script>
 
