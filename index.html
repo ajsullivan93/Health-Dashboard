@@ -363,6 +363,10 @@ select {
         —
       </div>
 
+      <div class="small" id="healthKitSyncStatus">
+        Apple Health import is available from the Import tab.
+      </div>
+
       <div class="score-label" id="healthScoreLabel">
         Today's Health Score
       </div>
@@ -2500,6 +2504,41 @@ function showAppleHealthImportSummary(result) {
         " added to your history.";
 
 }
+
+
+function updateHealthKitSyncStatus(message) {
+  const status=document.getElementById("healthKitSyncStatus");
+  if(status)status.textContent=message;
+}
+
+function applyNativeHealthKitSync(payload) {
+  try {
+    const result=applyAppleHealthImport(payload);
+    updateHealthKitSyncStatus(result.duplicate?"HealthKit is up to date.":"HealthKit synced: "+result.metrics+" metrics and "+result.workouts+" workouts updated.");
+    return result;
+  } catch(error) {
+    updateHealthKitSyncStatus("HealthKit sync error: "+error.message);
+    throw error;
+  }
+}
+
+window.handleHealthKitSync=function(payload) {
+  return applyNativeHealthKitSync(payload);
+};
+
+window.handleHealthKitStatus=function(status) {
+  updateHealthKitSyncStatus(status.message||"HealthKit sync status updated.");
+};
+
+function requestNativeHealthKitSync() {
+  if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.healthKitSync) {
+    window.webkit.messageHandlers.healthKitSync.postMessage({action:"sync"});
+  }
+}
+
+document.addEventListener("visibilitychange",function() {
+  if(!document.hidden)requestNativeHealthKitSync();
+});
 
 
 function importAppleHealthData() {
