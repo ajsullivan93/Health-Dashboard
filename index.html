@@ -966,6 +966,189 @@ let foods = JSON.parse(
   localStorage.getItem("foods") || "[]"
 );
 
+const HISTORY_STORAGE_KEY =
+  "healthHistory";
+
+const HISTORY_VERSION = 1;
+
+let healthHistory =
+  loadHealthHistory();
+
+
+function loadHealthHistory() {
+
+  try {
+
+    const stored =
+      JSON.parse(
+        localStorage.getItem(
+          HISTORY_STORAGE_KEY
+        ) || "null"
+      );
+
+    if (stored &&
+        stored.version === HISTORY_VERSION &&
+        stored.days &&
+        typeof stored.days === "object") {
+      return stored;
+    }
+
+  } catch (error) {
+    // Start with a clean history if storage is invalid.
+  }
+
+  return {
+    version: HISTORY_VERSION,
+    days: {}
+  };
+
+}
+
+
+function saveHealthHistory() {
+
+  localStorage.setItem(
+    HISTORY_STORAGE_KEY,
+    JSON.stringify(healthHistory)
+  );
+
+}
+
+
+function createHistoryDay(date) {
+
+  return {
+    date: date,
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      entries: 0
+    },
+    weight: null,
+    workouts: [],
+    healthMetrics: {}
+  };
+
+}
+
+
+function getHistoryDay(date) {
+
+  if (!healthHistory.days[date]) {
+    healthHistory.days[date] =
+      createHistoryDay(date);
+  }
+
+  return healthHistory.days[date];
+
+}
+
+
+/*
+  Foundation methods for future Progress features.
+  They keep all historical values grouped by local date.
+*/
+function recordWeight(weight, date) {
+
+  const day =
+    getHistoryDay(
+      date || toLocalDateKey(new Date())
+    );
+
+  day.weight =
+    Number(weight) || null;
+
+  saveHealthHistory();
+
+}
+
+
+function recordWorkout(workout, date) {
+
+  const day =
+    getHistoryDay(
+      date || toLocalDateKey(new Date())
+    );
+
+  day.workouts.push(workout);
+
+  saveHealthHistory();
+
+}
+
+
+function recordHealthMetrics(metrics, date) {
+
+  const day =
+    getHistoryDay(
+      date || toLocalDateKey(new Date())
+    );
+
+  day.healthMetrics = {
+    ...day.healthMetrics,
+    ...metrics
+  };
+
+  saveHealthHistory();
+
+}
+
+
+function syncNutritionHistory() {
+
+  const nutritionByDate = {};
+
+  foods.forEach(food => {
+
+    const date =
+      getFoodDateKey(food);
+
+    if (!nutritionByDate[date]) {
+      nutritionByDate[date] = {
+        calories: 0,
+        protein: 0,
+        entries: 0
+      };
+    }
+
+    nutritionByDate[date].calories +=
+      Number(food.calories) || 0;
+
+    nutritionByDate[date].protein +=
+      Number(food.protein) || 0;
+
+    nutritionByDate[date].entries += 1;
+
+  });
+
+  Object.entries(nutritionByDate)
+    .forEach(([date, nutrition]) => {
+
+      const day =
+        getHistoryDay(date);
+
+      day.nutrition = nutrition;
+
+    });
+
+  saveHealthHistory();
+
+}
+
+
+function getHistoryDays(startDate, endDate) {
+
+  return Object.values(healthHistory.days)
+    .filter(day =>
+      day.date >= startDate &&
+      day.date <= endDate
+    )
+    .sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+}
+
 
 function showTab(tab, button) {
 
@@ -1071,6 +1254,8 @@ function addFood() {
   renderFood();
 
   updateNutrition();
+
+  syncNutritionHistory();
 
 }
 
@@ -1326,26 +1511,25 @@ function renderTrends() {
 
   const endKey = toLocalDateKey(end);
 
+  const historyDays =
+    getHistoryDays(startKey, endKey);
+
   const entries =
-    foods.filter(food => {
-
-      const dateKey =
-        getFoodDateKey(food);
-
-      return dateKey >= startKey &&
-        dateKey <= endKey;
-
-    });
+    historyDays.reduce(
+      (total, day) =>
+        total + day.nutrition.entries,
+      0
+    );
 
   const totals =
-    entries.reduce(
-      (summary, food) => {
+    historyDays.reduce(
+      (summary, day) => {
 
         summary.calories +=
-          Number(food.calories) || 0;
+          day.nutrition.calories;
 
         summary.protein +=
-          Number(food.protein) || 0;
+          day.nutrition.protein;
 
         return summary;
 
@@ -1376,7 +1560,7 @@ function renderTrends() {
 
   document
     .getElementById("trendEntries")
-    .textContent = entries.length;
+    .textContent = entries;
 
   document
     .getElementById("trendAverage")
@@ -1395,7 +1579,12 @@ function renderTrends() {
   const list =
     document.getElementById("trendList");
 
-  if (entries.length === 0) {
+  const daysWithNutrition =
+    historyDays.filter(day =>
+      day.nutrition.entries > 0
+    );
+
+  if (daysWithNutrition.length === 0) {
 
     list.innerHTML =
       "<p class='small'>No food logged for this period.</p>";
@@ -1404,39 +1593,17 @@ function renderTrends() {
 
   }
 
-  const dailyTotals = {};
-
-  entries.forEach(food => {
-
-    const dateKey =
-      getFoodDateKey(food);
-
-    if (!dailyTotals[dateKey]) {
-      dailyTotals[dateKey] = {
-        calories: 0,
-        protein: 0
-      };
-    }
-
-    dailyTotals[dateKey].calories +=
-      Number(food.calories) || 0;
-
-    dailyTotals[dateKey].protein +=
-      Number(food.protein) || 0;
-
-  });
-
   list.innerHTML =
-    Object.entries(dailyTotals)
+    daysWithNutrition
       .sort((a, b) =>
-        b[0].localeCompare(a[0])
+        b.date.localeCompare(a.date)
       )
-      .map(([date, totals]) => `
+      .map(day => `
 
         <div class="food-entry">
           <strong>
             ${new Date(
-              date + "T00:00:00"
+              day.date + "T00:00:00"
             ).toLocaleDateString(
               undefined,
               {
@@ -1448,8 +1615,8 @@ function renderTrends() {
           </strong>
 
           <div class="small">
-            ${totals.calories} calories ·
-            ${totals.protein}g protein
+            ${day.nutrition.calories} calories ·
+            ${day.nutrition.protein}g protein
           </div>
         </div>
 
@@ -1499,6 +1666,8 @@ function updateWeightProgress() {
 
 }
 
+
+syncNutritionHistory();
 
 renderFood();
 
