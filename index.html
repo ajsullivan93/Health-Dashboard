@@ -1116,11 +1116,21 @@ select {
         Save the details of any completed exercise to the date you trained.
       </p>
 
+      <select id="actualWorkoutType" aria-label="Workout type">
+        <option value="lifting">Lifting</option>
+        <option value="ruck">Ruck</option>
+        <option value="run">Run</option>
+        <option value="walk">Walk</option>
+        <option value="mobility-yoga">Morning mobility / yoga</option>
+        <option value="other">Other workout</option>
+      </select>
+
       <input id="actualWorkoutName" placeholder="Exercise or workout name">
 
       <div class="workout-log-grid">
         <input id="actualWorkoutSets" type="number" min="0" placeholder="Sets">
         <input id="actualWorkoutReps" type="number" min="0" placeholder="Reps">
+        <input id="actualWorkoutWeight" type="number" min="0" step="0.5" placeholder="Weight (lb)">
         <input id="actualWorkoutDistance" type="number" min="0" step="0.1" placeholder="Distance (mi)">
         <input id="actualWorkoutDuration" type="number" min="0" placeholder="Duration (min)">
       </div>
@@ -1997,6 +2007,10 @@ function formatWorkout(workout) {
     details.push(workout.reps + " reps");
   }
 
+  if (workout.weight) {
+    details.push(workout.weight + " lb");
+  }
+
   if (workout.distance) {
     details.push(workout.distance + " mi");
   }
@@ -2146,11 +2160,21 @@ function logActualWorkout() {
   const dateInput =
     document.getElementById("actualWorkoutDate");
 
-  const name = nameInput.value.trim();
+  const workoutType =
+    document
+      .getElementById("actualWorkoutType")
+      .value;
 
-  if (!name) {
-    return;
-  }
+  const name =
+    nameInput.value.trim() ||
+    {
+      lifting: "Lifting workout",
+      ruck: "Ruck",
+      run: "Run",
+      walk: "Walk",
+      "mobility-yoga": "Morning mobility / yoga",
+      other: "Workout"
+    }[workoutType];
 
   const date =
     dateInput.value ||
@@ -2159,6 +2183,7 @@ function logActualWorkout() {
   recordWorkout(
     {
       name: name,
+      type: workoutType,
       sets: Number(
         document
           .getElementById("actualWorkoutSets")
@@ -2167,6 +2192,11 @@ function logActualWorkout() {
       reps: Number(
         document
           .getElementById("actualWorkoutReps")
+          .value
+      ) || 0,
+      weight: Number(
+        document
+          .getElementById("actualWorkoutWeight")
           .value
       ) || 0,
       distance: Number(
@@ -2188,6 +2218,7 @@ function logActualWorkout() {
     "actualWorkoutName",
     "actualWorkoutSets",
     "actualWorkoutReps",
+    "actualWorkoutWeight",
     "actualWorkoutDistance",
     "actualWorkoutDuration"
   ].forEach(id => {
