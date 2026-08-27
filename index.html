@@ -2130,6 +2130,18 @@ function validateAppleHealthImport(payload) {
       );
     }
 
+    if (Array.isArray(record.workouts)) {
+      record.workouts.forEach(workout => {
+        if (!workout ||
+            typeof workout.name !== "string") {
+          throw new Error(
+            "Day " + (index + 1) +
+            " has a workout without a name."
+          );
+        }
+      });
+    }
+
   });
 
   return payload.days;
