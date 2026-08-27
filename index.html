@@ -47,6 +47,19 @@ header p {
   overflow-x: auto;
 }
 
+@media (max-width: 700px) {
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 10px 0;
+    background: #f3f4f6;
+  }
+  .tabs button {
+    min-height: 44px;
+  }
+}
+
 .tabs button {
   flex: 1;
   min-width: 90px;
@@ -463,6 +476,11 @@ select {
 
     </div>
 
+
+    <div class="section">
+      <h2>🏋️ Today’s Workout</h2>
+      <div id="todayWorkoutCard" class="small">Loading today’s plan…</div>
+    </div>
 
     <!-- HEALTH METRICS -->
 
@@ -3769,6 +3787,31 @@ function saveWeightLog() {
 
 
 
+function renderTodayWorkout() {
+  const plans={
+    0:"Rest / recovery",
+    1:"Morning mobility/yoga · 2-mile ruck · Strength training",
+    2:"Morning mobility/yoga · Run or walk",
+    3:"Morning mobility/yoga · 2-mile ruck · Strength training",
+    4:"Morning mobility/yoga · Run or walk",
+    5:"Morning mobility/yoga · 2-mile ruck · Strength training",
+    6:"Walking / optional cardio"
+  };
+  const date=toLocalDateKey(new Date());
+  const day=getHistoryDay(date);
+  const planned=plans[new Date().getDay()];
+  const complete=day.workouts.some(workout=>workout.scheduledDay);
+  document.getElementById("todayWorkoutCard").innerHTML="<strong>"+planned+"</strong><br><button class='primary' type='button' onclick='completeTodayWorkout()'>"+(complete?"Completed":"Mark Complete")+"</button>";
+}
+function completeTodayWorkout() {
+  const names=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const current=names[new Date().getDay()];
+  const plans={Sunday:"Rest / recovery",Monday:"Morning mobility/yoga · 2-mile ruck · Strength training",Tuesday:"Morning mobility/yoga · Run or walk",Wednesday:"Morning mobility/yoga · 2-mile ruck · Strength training",Thursday:"Morning mobility/yoga · Run or walk",Friday:"Morning mobility/yoga · 2-mile ruck · Strength training",Saturday:"Walking / optional cardio"};
+  completeScheduledWorkout(current,plans[current]);
+  renderTodayWorkout();
+}
+
+
 function updateWeightProgress() {
 
   const goal = 190;
@@ -3841,6 +3884,8 @@ renderFood();
 updateNutrition();
 
 updateWeightProgress();
+
+renderTodayWorkout();
 
 renderHealthScore();
 
