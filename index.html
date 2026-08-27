@@ -3787,30 +3787,21 @@ function saveWeightLog() {
 
 
 
+function todayWorkoutItems() {
+  return {0:["Rest / recovery"],1:["Morning mobility/yoga","2-mile ruck","Strength training"],2:["Morning mobility/yoga","Run or walk"],3:["Morning mobility/yoga","2-mile ruck","Strength training"],4:["Morning mobility/yoga","Run or walk"],5:["Morning mobility/yoga","2-mile ruck","Strength training"],6:["Walking / optional cardio"]}[new Date().getDay()];
+}
 function renderTodayWorkout() {
-  const plans={
-    0:"Rest / recovery",
-    1:"Morning mobility/yoga · 2-mile ruck · Strength training",
-    2:"Morning mobility/yoga · Run or walk",
-    3:"Morning mobility/yoga · 2-mile ruck · Strength training",
-    4:"Morning mobility/yoga · Run or walk",
-    5:"Morning mobility/yoga · 2-mile ruck · Strength training",
-    6:"Walking / optional cardio"
-  };
-  const date=toLocalDateKey(new Date());
-  const day=getHistoryDay(date);
-  const planned=plans[new Date().getDay()];
-  const complete=day.workouts.some(workout=>workout.scheduledDay);
-  document.getElementById("todayWorkoutCard").innerHTML="<strong>"+planned+"</strong><br><button class='primary' type='button' onclick='completeTodayWorkout()'>"+(complete?"Completed":"Mark Complete")+"</button>";
+  const date=toLocalDateKey(new Date()),day=getHistoryDay(date);
+  document.getElementById("todayWorkoutCard").innerHTML=todayWorkoutItems().map((name,index)=>{
+    const saved=day.workouts.find(workout=>workout.dailyWorkoutItem===index),status=saved?saved.status:"Pending";
+    return "<div class='workout-entry'><strong>"+name+"</strong><div class='small'>"+status+"</div><button class='primary' type='button' onclick='setTodayWorkoutStatus("+index+", &quot;Completed&quot;)'>Completed</button><button class='secondary' type='button' onclick='setTodayWorkoutStatus("+index+", &quot;Skipped&quot;)'>Skipped</button><button class='secondary' type='button' onclick='setTodayWorkoutStatus("+index+", &quot;Pending&quot;)'>Pending</button></div>";
+  }).join("");
 }
-function completeTodayWorkout() {
-  const names=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const current=names[new Date().getDay()];
-  const plans={Sunday:"Rest / recovery",Monday:"Morning mobility/yoga · 2-mile ruck · Strength training",Tuesday:"Morning mobility/yoga · Run or walk",Wednesday:"Morning mobility/yoga · 2-mile ruck · Strength training",Thursday:"Morning mobility/yoga · Run or walk",Friday:"Morning mobility/yoga · 2-mile ruck · Strength training",Saturday:"Walking / optional cardio"};
-  completeScheduledWorkout(current,plans[current]);
-  renderTodayWorkout();
+function setTodayWorkoutStatus(index,status) {
+  const date=toLocalDateKey(new Date()),day=getHistoryDay(date),existing=day.workouts.find(workout=>workout.dailyWorkoutItem===index);
+  if(existing){existing.status=status;existing.completed=status==="Completed";}else{day.workouts.push({name:todayWorkoutItems()[index],dailyWorkoutItem:index,status:status,completed:status==="Completed",type:"scheduled"});}
+  updateWorkoutHealthScore(date);saveHealthHistory();renderTodayWorkout();
 }
-
 
 function updateWeightProgress() {
 
