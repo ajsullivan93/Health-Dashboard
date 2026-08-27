@@ -3699,26 +3699,31 @@ function openWeightLog() {
   const form =
     document.getElementById("weightLogForm");
 
-  if (form.classList.contains("hidden")) {
-    dateInput.value =
-      toLocalDateKey(new Date());
-
-    const day =
-      healthHistory.days[dateInput.value];
-
-    document
-      .getElementById("weightLogValue")
-      .value =
-        day && typeof day.weight === "number"
-          ? day.weight
-          : "";
-
-    document
-      .getElementById("weightLogMessage")
-      .textContent = "";
-
-    form.classList.remove("hidden");
+  if (!form.classList.contains("hidden")) {
+    form.classList.add("hidden");
+    return;
   }
+
+  // This is calculated at the moment the form opens, using
+  // the device's local calendar date rather than UTC.
+  dateInput.value =
+    toLocalDateKey(new Date());
+
+  const day =
+    healthHistory.days[dateInput.value];
+
+  document
+    .getElementById("weightLogValue")
+    .value =
+      day && typeof day.weight === "number"
+        ? day.weight
+        : "";
+
+  document
+    .getElementById("weightLogMessage")
+    .textContent = "";
+
+  form.classList.remove("hidden");
 
 }
 
