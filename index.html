@@ -1409,7 +1409,9 @@ function recordWeight(weight, date) {
   day.weight =
     Number(weight) || null;
 
-  saveHealthHistory();
+  refreshHealthScore(
+    date || toLocalDateKey(new Date())
+  );
 
 }
 
@@ -1451,7 +1453,9 @@ function recordHealthMetrics(metrics, date) {
       "manual";
   }
 
-  saveHealthHistory();
+  refreshHealthScore(
+    date || toLocalDateKey(new Date())
+  );
 
 }
 
@@ -1491,6 +1495,11 @@ function syncNutritionHistory() {
 
       day.nutrition = nutrition;
 
+    });
+
+  Object.keys(nutritionByDate)
+    .forEach(date => {
+      refreshHealthScore(date);
     });
 
   saveHealthHistory();
