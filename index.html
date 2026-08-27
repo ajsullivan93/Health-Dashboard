@@ -410,7 +410,7 @@ select {
 
         <!-- WEIGHT GOAL -->
 
-    <div class="section">
+    <div class="section" onclick="openWeightLog()">
 
       <div class="goal-header">
 
@@ -444,6 +444,22 @@ select {
           id="weightProgress">
         </div>
       </div>
+
+      <div id="weightLogForm" class="hidden" onclick="event.stopPropagation()">
+        <label class="small" for="weightLogDate">Date</label>
+        <input id="weightLogDate" type="date">
+
+        <label class="small" for="weightLogValue">Weight (lb)</label>
+        <input id="weightLogValue" type="number" min="1" step="0.1" inputmode="decimal">
+
+        <button class="primary" type="button" onclick="saveWeightLog()">
+          Save Weight
+        </button>
+
+        <div class="small" id="weightLogMessage"></div>
+      </div>
+
+      <div class="small">Tap to log a weigh-in</div>
 
     </div>
 
@@ -3675,13 +3691,102 @@ function saveProgressSnapshot() {
 }
 
 
-function updateWeightProgress() {
+function openWeightLog() {
 
-  const current = 220;
+  const dateInput =
+    document.getElementById("weightLogDate");
+
+  const form =
+    document.getElementById("weightLogForm");
+
+  if (form.classList.contains("hidden")) {
+    dateInput.value =
+      toLocalDateKey(new Date());
+
+    const day =
+      healthHistory.days[dateInput.value];
+
+    document
+      .getElementById("weightLogValue")
+      .value =
+        day && typeof day.weight === "number"
+          ? day.weight
+          : "";
+
+    document
+      .getElementById("weightLogMessage")
+      .textContent = "";
+
+    form.classList.remove("hidden");
+  }
+
+}
+
+
+function saveWeightLog() {
+
+  const date =
+    document.getElementById("weightLogDate")
+    .value;
+
+  const weight =
+    Number(
+      document
+        .getElementById("weightLogValue")
+        .value
+    );
+
+  const message =
+    document.getElementById("weightLogMessage");
+
+  if (!date ||
+      !Number.isFinite(weight) ||
+      weight <= 0) {
+    message.textContent =
+      "Enter a valid date and weight.";
+    return;
+  }
+
+  const day =
+    getHistoryDay(date);
+
+  day.weight = weight;
+
+  saveHealthHistory();
+
+  updateWeightProgress();
+
+  message.textContent =
+    "Saved " + weight + " lb for " + date + ".";
+
+}
+
+
+
+
+function updateWeightProgress() {
 
   const goal = 190;
 
   const starting = 220;
+
+  const weights =
+    Object.values(healthHistory.days)
+      .filter(day =>
+        typeof day.weight === "number"
+      )
+      .sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+
+  const current =
+    weights.length
+      ? weights[weights.length - 1].weight
+      : starting;
+
+  document
+    .getElementById("currentWeight")
+    .textContent = current;
 
 
   const lost =
