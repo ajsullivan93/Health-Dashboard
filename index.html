@@ -48,16 +48,15 @@ header p {
 }
 
 @media (max-width: 700px) {
-  .tabs {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    padding: 10px 0;
-    background: #f3f4f6;
-  }
-  .tabs button {
-    min-height: 44px;
-  }
+  .tabs { position: sticky; top: 0; z-index: 5; padding: 10px 0; background: #f3f4f6; }
+  .tabs button, .primary, .secondary { min-height: 44px; }
+  #dashboard { display: flex; flex-direction: column; gap: 0; }
+  #dashboard .score-card { order: 1; }
+  #todayWorkoutSection { order: 2; }
+  #weightSection { order: 3; }
+  #nutritionSection { order: 4; }
+  #healthMetricsSection { order: 5; }
+  #dashboard .section { margin-bottom: 12px; }
 }
 
 .tabs button {
@@ -423,7 +422,7 @@ select {
 
         <!-- WEIGHT GOAL -->
 
-    <div class="section" onclick="openWeightLog()">
+    <div class="section" id="weightSection" onclick="openWeightLog()">
 
       <div class="goal-header">
 
@@ -472,19 +471,19 @@ select {
         <div class="small" id="weightLogMessage"></div>
       </div>
 
-      <div class="small">Tap to log a weigh-in</div>
+      <div class="small" id="weightTrend">Tap to log a weigh-in</div>
 
     </div>
 
 
-    <div class="section">
+    <div class="section" id="todayWorkoutSection">
       <h2>🏋️ Today’s Workout</h2>
       <div id="todayWorkoutCard" class="small">Loading today’s plan…</div>
     </div>
 
     <!-- HEALTH METRICS -->
 
-    <div class="section">
+    <div class="section" id="healthMetricsSection">
 
       <h2>Today's Health</h2>
 
@@ -562,7 +561,7 @@ select {
 
     <!-- NUTRITION -->
 
-    <div class="section">
+    <div class="section" id="nutritionSection">
 
       <h2>🍎 Today's Nutrition</h2>
 
@@ -3826,6 +3825,34 @@ function updateWeightProgress() {
   document
     .getElementById("currentWeight")
     .textContent = current;
+
+  const sevenDaysAgo =
+    toLocalDateKey(
+      new Date(
+        Date.now() - 7 * 24 * 60 * 60 * 1000
+      )
+    );
+
+  const older =
+    weights.filter(day =>
+      day.date <= sevenDaysAgo
+    ).pop();
+
+  document
+    .getElementById("weightTrend")
+    .textContent =
+      older
+        ? (() => {
+            const change =
+              current - older.weight;
+
+            return change === 0
+              ? "→ Flat over 7 days"
+              : (change < 0 ? "↓ " : "↑ ") +
+                Math.abs(change).toFixed(1) +
+                " lb over 7 days";
+          })()
+        : "Tap to log a weigh-in";
 
 
   const lost =
