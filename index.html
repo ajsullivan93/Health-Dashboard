@@ -356,21 +356,46 @@ select {
     <div class="score-card">
 
       <div class="score" id="healthScore">
-        75
+        —
       </div>
 
-      <div class="score-label">
+      <div class="score-label" id="healthScoreLabel">
         Today's Health Score
+      </div>
+
+      <div class="metrics" id="healthScoreCategories">
+        <div class="metric">
+          <div class="metric-title">😴 Sleep</div>
+          <div class="metric-value" id="scoreSleep">Unavailable</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">🫀 Recovery</div>
+          <div class="metric-value" id="scoreRecovery">Unavailable</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">👣 Activity</div>
+          <div class="metric-value" id="scoreActivity">Unavailable</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">🫁 Cardio Fitness</div>
+          <div class="metric-value" id="scoreCardio">Unavailable</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">🍎 Nutrition</div>
+          <div class="metric-value" id="scoreNutrition">Unavailable</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">⚖️ Weight Progress</div>
+          <div class="metric-value" id="scoreWeight">Unavailable</div>
+        </div>
       </div>
 
       <div class="recommendation">
 
-        <strong>💡 Today's Recommendation</strong>
+        <strong>💡 Score Explanation</strong>
 
-        <p>
-          Your dashboard is ready. Once Apple Health data is connected,
-          your recommendations will be based on your actual sleep,
-          activity, recovery and fitness data.
+        <p id="healthScoreInsights">
+          Log food, workouts, weigh-ins, or connected health data to build your score.
         </p>
 
       </div>
@@ -378,7 +403,7 @@ select {
     </div>
 
 
-    <!-- WEIGHT GOAL -->
+        <!-- WEIGHT GOAL -->
 
     <div class="section">
 
@@ -2045,30 +2070,245 @@ function getScheduledWorkoutDate(dayName) {
 }
 
 
+
+
+function calculateHealthScore(date) {
+
+  const day = getHistoryDay(date);
+
+  const nutrition = day.nutrition;
+
+  const categories = {
+    sleep: null,
+    recovery: null,
+    activity: null,
+    cardio: null,
+    nutrition: null,
+    weight: null
+  };
+
+  if (typeof day.healthMetrics.sleepHours === "number") {
+    categories.sleep = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          day.healthMetrics.sleepHours / 7.5 * 100
+        )
+      )
+    );
+  }
+
+  if (typeof day.healthMetrics.recoveryScore === "number") {
+    categories.recovery = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          day.healthMetrics.recoveryScore
+        )
+      )
+    );
+  }
+
+  if (day.workouts.length > 0) {
+    categories.activity =
+      Math.min(
+        100,
+        day.workouts.length * 50
+      );
+  }
+
+  if (typeof day.healthMetrics.cardioFitnessScore ===
+      "number") {
+    categories.cardio = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          day.healthMetrics.cardioFitnessScore
+        )
+      )
+    );
+  }
+
+  if (nutrition.entries > 0) {
+
+    const calorieScore =
+      Math.max(
+        0,
+        100 -
+        Math.abs(nutrition.calories - 2200) /
+        2200 * 100
+      );
+
+    const proteinScore =
+      Math.min(
+        100,
+        nutrition.protein / 200 * 100
+      );
+
+    categories.nutrition = Math.round(
+      (calorieScore + proteinScore) / 2
+    );
+
+  }
+
+  if (typeof day.weight === "number") {
+    categories.weight = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          (220 - day.weight) /
+          (220 - 190) * 100
+        )
+      )
+    );
+  }
+
+  const available =
+    Object.values(categories)
+      .filter(score =>
+        typeof score === "number"
+      );
+
+  return {
+    overall: available.length
+      ? Math.round(
+          available.reduce(
+            (total, score) =>
+              total + score,
+            0
+          ) / available.length
+        )
+      : null,
+    categories: categories
+  };
+
+}
+
+
+function renderHealthScore() {
+
+  const date =
+    toLocalDateKey(new Date());
+
+  const score =
+    calculateHealthScore(date);
+
+  const categoryTargets = {
+    sleep: "scoreSleep",
+    recovery: "scoreRecovery",
+    activity: "scoreActivity",
+    cardio: "scoreCardio",
+    nutrition: "scoreNutrition",
+    weight: "scoreWeight"
+  };
+
+  Object.entries(categoryTargets)
+    .forEach(([category, id]) => {
+      document
+        .getElementById(id)
+        .textContent =
+          typeof score.categories[category] ===
+          "number"
+            ? score.categories[category]
+            : "Unavailable";
+    });
+
+  document
+    .getElementById("healthScore")
+    .textContent =
+      score.overall === null
+        ? "—"
+        : score.overall;
+
+  document
+    .getElementById("healthScoreLabel")
+    .textContent =
+      score.overall === null
+        ? "Health Score needs data"
+        : "Today's Health Score";
+
+  const helping = [];
+  const hurting = [];
+  const unavailable = [];
+
+  Object.entries(score.categories)
+    .forEach(([category, value]) => {
+
+      const label = {
+        sleep: "Sleep",
+        recovery: "Recovery",
+        activity: "Activity",
+        cardio: "Cardio fitness",
+        nutrition: "Nutrition",
+        weight: "Weight progress"
+      }[category];
+
+      if (typeof value !== "number") {
+        unavailable.push(label);
+      } else if (value >= 80) {
+        helping.push(label);
+      } else if (value < 60) {
+        hurting.push(label);
+      }
+
+    });
+
+  const explanation = [
+    helping.length
+      ? "Helping: " + helping.join(", ") + "."
+      : "",
+    hurting.length
+      ? "Needs attention: " + hurting.join(", ") + "."
+      : "",
+    unavailable.length
+      ? "Unavailable: " +
+        unavailable.join(", ") +
+        "."
+      : ""
+  ].filter(Boolean).join(" ");
+
+  document
+    .getElementById("healthScoreInsights")
+    .textContent =
+      explanation ||
+      "Log food, workouts, weigh-ins, or connected health data to build your score.";
+
+}
+
+
+function refreshHealthScore(date) {
+
+  const day = getHistoryDay(date);
+
+  const score =
+    calculateHealthScore(date);
+
+  day.healthMetrics.healthScore =
+    score.overall;
+
+  day.healthMetrics.healthScoreSource =
+    "engine";
+
+  if (date === toLocalDateKey(new Date())) {
+    renderHealthScore();
+  }
+
+  saveHealthHistory();
+
+}
+
 function updateWorkoutHealthScore(date) {
 
   const day = getHistoryDay(date);
 
-  const workoutBonus =
-    Math.min(10, day.workouts.length * 5);
-
-  if (day.healthMetrics.healthScoreSource !== "manual") {
-    day.healthMetrics.healthScore =
-      Math.min(100, 75 + workoutBonus);
-
-    day.healthMetrics.healthScoreSource =
-      "workout";
-  }
-
   day.healthMetrics.workoutSessions =
     day.workouts.length;
 
-  if (date === toLocalDateKey(new Date())) {
-    document
-      .getElementById("healthScore")
-      .textContent =
-        day.healthMetrics.healthScore;
-  }
+  refreshHealthScore(date);
 
 }
 
@@ -2586,14 +2826,18 @@ function renderHistory() {
 
   const healthScores =
     days
-      .filter(day =>
-        typeof day.healthMetrics.healthScore ===
-        "number"
-      )
-      .map(day => ({
-        date: day.date,
-        score: day.healthMetrics.healthScore
-      }));
+      .map(day => {
+        const score =
+          calculateHealthScore(day.date);
+
+        return {
+          date: day.date,
+          score: score.overall
+        };
+      })
+      .filter(item =>
+        typeof item.score === "number"
+      );
 
   const latestScore =
     healthScores[healthScores.length - 1];
@@ -2630,7 +2874,7 @@ function renderHistory() {
 
   healthList.innerHTML =
     healthScores.length === 0
-      ? "<p class='small history-empty'>No Health Scores logged for this period.</p>"
+      ? "<p class='small history-empty'>No score data is available for this period.</p>"
       : healthScores
           .sort((a, b) =>
             b.date.localeCompare(a.date)
@@ -2774,6 +3018,8 @@ renderFood();
 updateNutrition();
 
 updateWeightProgress();
+
+renderHealthScore();
 
 renderWorkoutSchedule();
 
