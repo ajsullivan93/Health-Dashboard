@@ -396,11 +396,8 @@ select {
 
       <div class="recommendation">
 
-        <strong>💡 Score Explanation</strong>
-
-        <p id="healthScoreInsights">
-          Log food, workouts, weigh-ins, or connected health data to build your score.
-        </p>
+        <strong>💡 Today's Priorities</strong>
+        <div id="dailyRecommendations"><p class="small">Log data to receive personalized priorities.</p></div>
 
       </div>
 
@@ -919,6 +916,11 @@ select {
 
       <div id="historyHealthList" class="history-list"></div>
 
+    </div>
+
+    <div class="section">
+      <h2>💡 Recommendation History</h2>
+      <div id="recommendationHistory" class="history-list"></div>
     </div>
 
     <div class="section">
@@ -2906,6 +2908,31 @@ function renderHealthScore() {
 }
 
 
+function getBaseline(metric,date){return Object.values(healthHistory.days).filter(d=>d.date<date&&typeof d.healthMetrics[metric]==="number").sort((a,b)=>a.date.localeCompare(b.date)).slice(-14).map(d=>d.healthMetrics[metric]);}
+function avg(values){return values.reduce((a,b)=>a+b,0)/values.length;}
+function dailyRecommendations(date){
+ const d=getHistoryDay(date),out=[],sleep=d.healthMetrics.sleepHours,hrv=d.healthMetrics.hrv,rhr=d.healthMetrics.restingHeartRate,recovery=[];
+ if(typeof sleep==="number"&&sleep<7)recovery.push("sleep was "+sleep.toFixed(1)+" hours");
+ const hb=getBaseline("hrv",date),rb=getBaseline("restingHeartRate",date);
+ if(typeof hrv==="number"&&hb.length>=3&&hrv<avg(hb)*.8)recovery.push("HRV ("+Math.round(hrv)+") is below your "+Math.round(avg(hb))+" baseline");
+ if(typeof rhr==="number"&&rb.length>=3&&rhr>avg(rb)*1.1)recovery.push("resting HR ("+Math.round(rhr)+") is above your "+Math.round(avg(rb))+" baseline");
+ if(recovery.length)out.push({title:"Make today a recovery day",detail:recovery.join("; ")+". Choose mobility, walking, or rest over hard training."});
+ const n=d.nutrition;
+ if(n.entries&&n.protein<200)out.push({title:"Prioritize protein",detail:"You have logged "+n.protein+"g of your 200g target."});
+ if(n.entries&&n.calories<1760)out.push({title:"Fuel adequately",detail:"You have logged "+n.calories+" of your 2,200 calorie target."});
+ else if(n.entries&&n.calories>2530)out.push({title:"Keep the next meal lighter",detail:"You have logged "+n.calories+" calories against a 2,200 target."});
+ const since7=toLocalDateKey(new Date(new Date(date+"T00:00:00").getTime()-518400000)),week=Object.values(healthHistory.days).filter(x=>x.date>=since7&&x.date<=date),sessions=week.reduce((a,x)=>a+x.workouts.length,0);
+ if(week.length>=3&&sessions<3&&!recovery.length)out.push({title:"Schedule a training session",detail:"You have logged "+sessions+" workouts in the last 7 days; your plan targets 3."});
+ const since14=toLocalDateKey(new Date(new Date(date+"T00:00:00").getTime()-1123200000)),weights=Object.values(healthHistory.days).filter(x=>x.date>=since14&&x.date<=date&&typeof x.weight==="number").sort((a,b)=>a.date.localeCompare(b.date));
+ if(weights.length>=2){const change=weights.at(-1).weight-weights[0].weight;out.push(change<0?{title:"Keep the weight-loss momentum",detail:"You are down "+(-change).toFixed(1)+" lb over the last 14 days."}:{title:"Refocus on weight-loss consistency",detail:"Weight is "+weights.at(-1).weight.toFixed(1)+" lb versus "+weights[0].weight.toFixed(1)+" lb at the start of the last 14 days."});}
+ if(!out.length){const score=calculateHealthScore(date);if(score.overall!==null)out.push({title:"Maintain your current routine",detail:"Your available health signals score "+score.overall+"/100."});}
+ return out.slice(0,3);
+}
+function refreshDailyRecommendation(date){const d=getHistoryDay(date);d.recommendation={date,priorities:dailyRecommendations(date),updatedAt:new Date().toISOString()};saveHealthHistory();if(date===toLocalDateKey(new Date()))renderDailyRecommendation();}
+function renderDailyRecommendation(){const d=getHistoryDay(toLocalDateKey(new Date())),list=d.recommendation?.priorities||dailyRecommendations(d.date);document.getElementById("dailyRecommendations").innerHTML=list.length?"<ol>"+list.map(x=>"<li><strong>"+x.title+":</strong> "+x.detail+"</li>").join("")+"</ol>":"<p class='small'>Log food, workouts, weigh-ins, or imported health data to receive priorities.</p>";}
+function renderRecommendationHistory(days){const rows=days.filter(d=>d.recommendation?.priorities?.length).sort((a,b)=>b.date.localeCompare(a.date));document.getElementById("recommendationHistory").innerHTML=rows.length?rows.map(d=>"<div class='food-entry'><strong>"+new Date(d.date+"T00:00:00").toLocaleDateString()+"</strong><div class='small'>"+d.recommendation.priorities.map(x=>x.title).join(" · ")+"</div></div>").join(""):"<p class='small'>No saved recommendations for this period.</p>";}
+
+
 function refreshHealthScore(date) {
 
   const day = getHistoryDay(date);
@@ -2918,6 +2945,8 @@ function refreshHealthScore(date) {
 
   day.healthMetrics.healthScoreSource =
     "engine";
+
+  refreshDailyRecommendation(date);
 
   if (date === toLocalDateKey(new Date())) {
     renderHealthScore();
@@ -3527,6 +3556,8 @@ function renderHistory() {
             </div>
 
           `).join("");
+
+  renderRecommendationHistory(days);
 
 }
 
