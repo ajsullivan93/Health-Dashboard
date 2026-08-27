@@ -346,6 +346,10 @@ select {
     <button onclick="showTab('history', this)">
       History
     </button>
+
+    <button onclick="showTab('import', this)">
+      Import
+    </button>
   </div>
 
 
@@ -954,6 +958,56 @@ select {
   </div>
 
 
+  <!-- APPLE HEALTH IMPORT -->
+
+  <div id="import" class="hidden">
+
+    <div class="section">
+
+      <h2>🍎 Import Apple Health Data</h2>
+
+      <p class="small">
+        A web page cannot read HealthKit directly. Import a JSON daily summary exported by an iPhone companion, Shortcut, or converter instead.
+      </p>
+
+      <input
+        id="appleHealthFile"
+        type="file"
+        accept="application/json,.json"
+      >
+
+      <p class="small">Or paste a JSON export:</p>
+
+      <textarea
+        id="appleHealthJson"
+        rows="8"
+        placeholder='{"version":1,"days":[{"date":"2026-08-26","sleepHours":7.5,"restingHeartRate":58,"hrv":42,"vo2Max":40,"steps":8200,"activeCalories":540,"weight":218.4,"workouts":[]}]}'></textarea>
+
+      <button class="primary" onclick="importAppleHealthData()">
+        Validate & Import
+      </button>
+
+      <div class="status small" id="appleHealthImportStatus"></div>
+
+    </div>
+
+    <div class="section">
+
+      <h2>Import Format</h2>
+
+      <p class="small">
+        Required: <strong>version: 1</strong> and a <strong>days</strong> array. Each day requires a YYYY-MM-DD date. Optional fields are sleepHours, restingHeartRate, hrv, vo2Max, steps, activeCalories, weight, and workouts.
+      </p>
+
+      <p class="small">
+        Workouts may include name, type, sets, reps, weight, distance, and duration. Invalid records are rejected before anything is saved.
+      </p>
+
+    </div>
+
+  </div>
+
+
   <!-- WORKOUTS -->
 
   <div id="workouts" class="hidden">
@@ -1547,6 +1601,10 @@ function showTab(tab, button) {
     .getElementById("history")
     .classList.add("hidden");
 
+  document
+    .getElementById("import")
+    .classList.add("hidden");
+
 
   document
     .getElementById(tab)
@@ -2021,6 +2079,197 @@ function renderTrends() {
 }
 
 
+const APPLE_HEALTH_IMPORT_VERSION = 1;
+
+const APPLE_HEALTH_METRICS = [
+  "sleepHours",
+  "restingHeartRate",
+  "hrv",
+  "vo2Max",
+  "steps",
+  "activeCalories",
+  "weight"
+];
+
+
+function validateAppleHealthImport(payload) {
+
+  if (!payload ||
+      payload.version !== APPLE_HEALTH_IMPORT_VERSION ||
+      !Array.isArray(payload.days)) {
+    throw new Error(
+      "Expected version 1 with a days array."
+    );
+  }
+
+  payload.days.forEach((record, index) => {
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date || "")) {
+      throw new Error(
+        "Day " + (index + 1) +
+        " needs a YYYY-MM-DD date."
+      );
+    }
+
+    APPLE_HEALTH_METRICS.forEach(metric => {
+      if (record[metric] !== undefined &&
+          (typeof record[metric] !== "number" ||
+           record[metric] < 0)) {
+        throw new Error(
+          "Day " + (index + 1) +
+          " has an invalid " + metric + "."
+        );
+      }
+    });
+
+    if (record.workouts !== undefined &&
+        !Array.isArray(record.workouts)) {
+      throw new Error(
+        "Day " + (index + 1) +
+        " has invalid workouts."
+      );
+    }
+
+  });
+
+  return payload.days;
+
+}
+
+
+function applyAppleHealthImport(payload) {
+
+  const days =
+    validateAppleHealthImport(payload);
+
+  days.forEach(record => {
+
+    const day =
+      getHistoryDay(record.date);
+
+    APPLE_HEALTH_METRICS.forEach(metric => {
+
+      if (record[metric] !== undefined) {
+
+        if (metric === "weight") {
+          day.weight = record.weight;
+        } else {
+          day.healthMetrics[metric] =
+            record[metric];
+        }
+
+      }
+
+    });
+
+    if (Array.isArray(record.workouts)) {
+
+      record.workouts.forEach(workout => {
+
+        if (!workout ||
+            typeof workout.name !== "string") {
+          throw new Error(
+            "Workouts need a name."
+          );
+        }
+
+        const duplicate =
+          day.workouts.some(existing =>
+            existing.source === "apple-health" &&
+            existing.name === workout.name &&
+            existing.duration === workout.duration
+          );
+
+        if (!duplicate) {
+          day.workouts.push({
+            ...workout,
+            source: "apple-health",
+            completed: true
+          });
+        }
+
+      });
+
+    }
+
+    day.healthMetrics.source =
+      "apple-health-import";
+
+    refreshHealthScore(record.date);
+
+  });
+
+  saveHealthHistory();
+
+  renderHealthScore();
+  renderHistory();
+  renderTrends();
+  renderRecentWorkouts();
+
+  return days.length;
+
+}
+
+
+function importAppleHealthData() {
+
+  const status =
+    document.getElementById(
+      "appleHealthImportStatus"
+    );
+
+  const text =
+    document.getElementById(
+      "appleHealthJson"
+    ).value.trim();
+
+  const file =
+    document.getElementById(
+      "appleHealthFile"
+    ).files[0];
+
+  const importText = content => {
+
+    try {
+
+      const count =
+        applyAppleHealthImport(
+          JSON.parse(content)
+        );
+
+      status.textContent =
+        "Imported " +
+        count +
+        " day" +
+        (count === 1 ? "" : "s") +
+        " of Apple Health data.";
+
+    } catch (error) {
+
+      status.textContent =
+        "Import failed: " + error.message;
+
+    }
+
+  };
+
+  if (file) {
+    file.text()
+      .then(importText)
+      .catch(() => {
+        status.textContent =
+          "Import failed: Could not read that file.";
+      });
+  } else if (text) {
+    importText(text);
+  } else {
+    status.textContent =
+      "Choose a JSON file or paste an export first.";
+  }
+
+}
+
+
 function formatWorkout(workout) {
 
   if (typeof workout === "string") {
@@ -2118,14 +2367,78 @@ function calculateHealthScore(date) {
         )
       )
     );
+  } else if (typeof day.healthMetrics.restingHeartRate === "number" ||
+      typeof day.healthMetrics.hrv === "number") {
+
+    const recoveryInputs = [];
+
+    if (typeof day.healthMetrics.restingHeartRate === "number") {
+      recoveryInputs.push(
+        Math.max(
+          0,
+          Math.min(
+            100,
+            100 -
+            Math.max(
+              0,
+              day.healthMetrics.restingHeartRate - 50
+            ) * 2
+          )
+        )
+      );
+    }
+
+    if (typeof day.healthMetrics.hrv === "number") {
+      recoveryInputs.push(
+        Math.min(
+          100,
+          day.healthMetrics.hrv / 50 * 100
+        )
+      );
+    }
+
+    categories.recovery = Math.round(
+      recoveryInputs.reduce(
+        (total, score) => total + score,
+        0
+      ) / recoveryInputs.length
+    );
   }
 
-  if (day.workouts.length > 0) {
-    categories.activity =
-      Math.min(
-        100,
-        day.workouts.length * 50
-      );
+  if (day.workouts.length > 0 ||
+      typeof day.healthMetrics.steps === "number" ||
+      typeof day.healthMetrics.activeCalories === "number") {
+
+    const workoutScore =
+      Math.min(100, day.workouts.length * 50);
+
+    const stepsScore =
+      typeof day.healthMetrics.steps === "number"
+        ? Math.min(
+            100,
+            day.healthMetrics.steps / 8000 * 100
+          )
+        : null;
+
+    const activeCaloriesScore =
+      typeof day.healthMetrics.activeCalories === "number"
+        ? Math.min(
+            100,
+            day.healthMetrics.activeCalories / 500 * 100
+          )
+        : null;
+
+    categories.activity = Math.round(
+      [workoutScore, stepsScore, activeCaloriesScore]
+        .filter(score =>
+          typeof score === "number"
+        )
+        .reduce(
+          (total, score, index, values) =>
+            total + score / values.length,
+          0
+        )
+    );
   }
 
   if (typeof day.healthMetrics.cardioFitnessScore ===
@@ -2137,6 +2450,13 @@ function calculateHealthScore(date) {
           100,
           day.healthMetrics.cardioFitnessScore
         )
+      )
+    );
+  } else if (typeof day.healthMetrics.vo2Max === "number") {
+    categories.cardio = Math.round(
+      Math.min(
+        100,
+        day.healthMetrics.vo2Max / 45 * 100
       )
     );
   }
