@@ -2514,11 +2514,28 @@ function updateHealthKitSyncStatus(message) {
 function applyNativeHealthKitSync(payload) {
   try {
     const result=applyAppleHealthImport(payload);
-    updateHealthKitSyncStatus(result.duplicate?"HealthKit is up to date.":"HealthKit synced: "+result.metrics+" metrics and "+result.workouts+" workouts updated.");
+    const syncedAt=new Date().toLocaleString();
+    localStorage.setItem("healthKitSyncMeta",JSON.stringify({
+      syncedAt:syncedAt,
+      metrics:result.metrics,
+      workouts:result.workouts
+    }));
+    updateHealthKitSyncStatus(result.duplicate
+      ? "HealthKit is up to date. Last successful sync: "+syncedAt+"."
+      : "Last successful HealthKit sync: "+syncedAt+" · "+result.metrics+" metrics and "+result.workouts+" workouts updated.");
     return result;
   } catch(error) {
     updateHealthKitSyncStatus("HealthKit sync error: "+error.message);
     throw error;
+  }
+}
+
+function restoreHealthKitSyncStatus() {
+  try {
+    const meta=JSON.parse(localStorage.getItem("healthKitSyncMeta")||"null");
+    if(meta)updateHealthKitSyncStatus("Last successful HealthKit sync: "+meta.syncedAt+" · "+meta.metrics+" metrics and "+meta.workouts+" workouts updated.");
+  } catch(error) {
+    updateHealthKitSyncStatus("HealthKit sync status is unavailable.");
   }
 }
 
@@ -3716,6 +3733,8 @@ updateNutrition();
 updateWeightProgress();
 
 renderHealthScore();
+
+restoreHealthKitSyncStatus();
 
 renderWorkoutSchedule();
 
