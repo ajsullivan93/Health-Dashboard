@@ -50,7 +50,7 @@ header p {
 @media (max-width: 700px) {
   .tabs { position: sticky; top: 0; z-index: 5; padding: 10px 0; background: #f3f4f6; }
   .tabs button, .primary, .secondary { min-height: 44px; }
-  #dashboard { display: flex; flex-direction: column; gap: 0; }
+  #dashboard:not(.hidden) { display: flex; flex-direction: column; gap: 0; }
   #dashboard .score-card { order: 1; }
   #todayWorkoutSection { order: 2; }
   #weightSection { order: 3; }
@@ -253,7 +253,7 @@ select {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .goal-number {
